@@ -11,7 +11,12 @@ Commandes
     secousse   arret d'urgence, repasse en pause
 
 Le programme demarre TOUJOURS en pause : au sortir du flash le robot est encore
-souvent sur la table, et des roues qui se lancent seules le font tomber.
+souvent sur la table, et des roues qui se lancent seules le font tomber. Avant
+cela il mesure une seconde de bruit ambiant, carre plein affiche, pour caler la
+moyenne glissante sur laquelle repose toute la detection.
+
+A chaque temps detecte, la matrice montre le rang du temps dans la mesure et les
+phares avant clignotent : les deux sur le premier temps, un seul sur les autres.
 """
 
 from microbit import (
@@ -30,6 +35,10 @@ SILENCE_MS = 4000
 # laissent le bus I2C respirer.
 PERIODE_MS = 20
 
+# Duree du flash visuel, matrice et phares. Assez bref pour rester net a tempo
+# rapide, assez long pour etre vu.
+FLASH_MS = 90
+
 
 class Moulin:
     def __init__(self):
@@ -38,6 +47,10 @@ class Moulin:
         self.motif = choregraphie.REPERTOIRE[0]()
         self.actif = False
         self.flash = 0
+        # Cote du prochain phare hors accent. Une bascule, et non le rang du
+        # temps : sur une mesure a quatre temps, alterner selon le rang ferait
+        # toujours tomber deux temps sur trois du meme cote.
+        self.cote_phare = False
 
     def motif_suivant(self):
         self.index = (self.index + 1) % len(choregraphie.REPERTOIRE)
@@ -91,7 +104,7 @@ class Moulin:
 
     def pause(self):
         self.actif = False
-        maqueen.arret()
+        maqueen.arret()   # coupe aussi les phares
         display.show(Image.SQUARE_SMALL)
 
     def demarre(self):
@@ -107,6 +120,13 @@ class Moulin:
             # detection sonore.
             while True:
                 display.scroll("Maqueen muet - verifier alim et micro:bit")
+
+        # Le detecteur mesure le bruit de fond avant de commencer, sinon sa
+        # moyenne glissante part de zero et les premieres secondes se remplissent
+        # de faux temps.
+        display.show(Image.SQUARE)
+        self.detecteur.calibre()
+        display.clear()
 
         self.pause()
 
@@ -137,6 +157,14 @@ class Moulin:
             if self.detecteur.ecoute():
                 self.motif.sur_beat()
                 self.flash = running_time()
+                # Les deux phares sur le premier temps de la mesure, un seul
+                # sur les autres : l'accent se voit d'un coup d'oeil, meme de
+                # loin et meme quand la matrice est illisible sous les pales.
+                if self.detecteur.accent():
+                    maqueen.phares(True, True)
+                else:
+                    self.cote_phare = not self.cote_phare
+                    maqueen.phares(self.cote_phare, not self.cote_phare)
 
             if self.detecteur.silence(SILENCE_MS):
                 maqueen.arret()
@@ -147,12 +175,14 @@ class Moulin:
             gauche, droite, contra = self.motif.tic(self.detecteur.energie)
             maqueen.pales(gauche, droite, contra)
 
-            # Un coeur qui bat sur la matrice, cale sur les beats detectes :
-            # c'est le seul moyen de regler la sensibilite sans oscilloscope.
-            if running_time() - self.flash < 80:
-                display.show(Image.HEART)
+            # Le rang du temps dans la mesure, affiche a chaque temps detecte.
+            # C'est le seul moyen de regler la sensibilite sans oscilloscope :
+            # si les chiffres defilent en mesure, la choregraphie suivra.
+            if running_time() - self.flash < FLASH_MS:
+                display.show(str(self.detecteur.temps()))
             else:
                 display.clear()
+                maqueen.phares(False, False)
 
             sleep(PERIODE_MS)
 

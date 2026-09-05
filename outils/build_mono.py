@@ -10,8 +10,13 @@ unique, en fusionnant leurs imports `microbit` et en supprimant les prefixes de
 module devenus inutiles puisque tout partage le meme espace de noms.
 
     python3 outils/build_mono.py    ->  build/moulin_beat.py
+
+uflash plafonne le script embarque a 20151 octets, et ce projet commente
+beaucoup. Si le fichier fusionne depasse, on le regenere sans commentaires ni
+docstrings — les sources de src/ restent evidemment intactes.
 """
 
+import ast
 import os
 import re
 
@@ -57,6 +62,34 @@ def noms_definis(texte):
            set(re.findall(r"^([A-Z_][A-Z0-9_]*)\s*=", texte, flags=re.M))
 
 
+# Limite imposee par uflash au script embarque dans le firmware.
+TAILLE_MAX = 20151
+
+
+def allege(texte):
+    """Retire commentaires et docstrings, en repassant par l'arbre syntaxique.
+
+    Passer par `ast` plutot que par des expressions regulieres garantit que le
+    resultat reste du Python valide et equivalent : les commentaires se perdent
+    a l'analyse, et on retire explicitement les docstrings.
+    """
+    arbre = ast.parse(texte)
+
+    for noeud in ast.walk(arbre):
+        if not isinstance(noeud, (ast.Module, ast.ClassDef,
+                                  ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        corps = noeud.body
+        if (corps and isinstance(corps[0], ast.Expr)
+                and isinstance(corps[0].value, ast.Constant)
+                and isinstance(corps[0].value.value, str)):
+            # Une fonction reduite a sa seule docstring a besoin d'un corps.
+            corps[0] = ast.Pass() if len(corps) == 1 else None
+            noeud.body = [n for n in corps if n is not None]
+
+    return ast.unparse(arbre)
+
+
 def construis():
     sources = {}
     for module in MODULES:
@@ -90,9 +123,24 @@ def construis():
         corps = deprefixe(nettoie(sources[module])).strip()
         morceaux.append("\n\n# %s\n# %s\n\n%s\n" % (module, "-" * len(module), corps))
 
+    texte = "\n".join(morceaux)
+
+    if len(texte.encode("utf-8")) > TAILLE_MAX:
+        avant = len(texte.encode("utf-8"))
+        texte = allege(texte)
+        apres = len(texte.encode("utf-8"))
+        print("allege : %d -> %d octets (limite uflash %d)"
+              % (avant, apres, TAILLE_MAX))
+        if apres > TAILLE_MAX:
+            raise SystemExit(
+                "le script fusionne fait encore %d octets, au dela des %d que "
+                "uflash accepte. Passer par `make modules`, qui depose les "
+                "modules separement et ne connait pas cette limite."
+                % (apres, TAILLE_MAX))
+
     os.makedirs(os.path.dirname(SORTIE), exist_ok=True)
     with open(SORTIE, "w") as f:
-        f.write("\n".join(morceaux))
+        f.write(texte)
 
     print("%s ecrit (%d octets)" % (SORTIE, os.path.getsize(SORTIE)))
     return SORTIE

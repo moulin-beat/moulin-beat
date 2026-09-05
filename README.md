@@ -77,8 +77,20 @@ Attention à ce que ce `OK` signifie : il atteste que les trames I2C ont été
 ses roues. Un `OK` sans qu'aucune roue ne bouge désigne l'alimentation, pas le
 code — voir ci-dessous.
 
-Un cœur bat sur la matrice à chaque temps détecté. C'est l'outil de réglage :
-si le cœur bat en mesure, la chorégraphie suivra.
+**Au démarrage, le robot écoute une seconde la pièce à vide**, un carré plein
+affiché, pour calibrer la moyenne glissante sur laquelle repose toute la
+détection. Sans cette mesure, elle partirait de zéro et les premières secondes
+se rempliraient de faux temps. Ne pas faire de bruit pendant ce moment.
+
+Ensuite, **à chaque temps détecté** :
+
+- la matrice affiche le **rang du temps dans la mesure**, de 1 à 4 ;
+- les **phares avant** clignotent — les deux sur le premier temps, un seul en
+  alternance sur les autres.
+
+C'est l'outil de réglage : si les chiffres défilent en mesure, la chorégraphie
+suivra. Les phares se voient de bien plus loin que la matrice, et restent
+lisibles quand les pales masquent l'écran.
 
 Après quatre secondes de silence les pales s'arrêtent seules, et le micro:bit
 affiche un visage endormi.
@@ -111,7 +123,9 @@ beat.Detecteur(sensibilite=1.30, temps_mort=150, plancher=12)
 - **temps_mort** — durée en ms d'aveuglement après un temps. Une caisse claire
   produit plusieurs pics rapprochés qu'il ne faut compter qu'une fois.
 - **plancher** — niveau sonore minimal. **À monter en premier** si le robot
-  s'agite dans une pièce silencieuse.
+  s'agite dans une pièce silencieuse. La calibration du démarrage le relève
+  automatiquement dans une salle bruyante, mais ne le baisse jamais en dessous
+  de la valeur demandée.
 
 Le seuil est une moyenne glissante, pas une valeur fixe : le dispositif s'adapte
 tout seul à une salle bruyante comme à un morceau doux.

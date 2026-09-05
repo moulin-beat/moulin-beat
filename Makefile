@@ -105,6 +105,7 @@ check:
 
 test:
 	python3 tests/test_choregraphie.py
+	python3 tests/test_beat.py
 
 clean:
 	rm -rf $(VENV)

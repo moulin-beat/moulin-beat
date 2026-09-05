@@ -12,7 +12,7 @@ est pose sur un berceau, roues en l'air. "Avant" et "arriere" n'ont donc pas de
 sens ici, on parle de sens de rotation des pales.
 """
 
-from microbit import i2c, sleep
+from microbit import i2c, sleep, pin8, pin12
 
 ADRESSE = 0x10
 
@@ -32,6 +32,12 @@ VITESSE_MAX = 255
 # pales tourne franchement, assez peu pour qu'un robot pose au sol ne parte pas
 # en trombe le temps de le rattraper.
 VITESSE_TEST = 120
+
+# Phares avant du Maqueen, pilotes en tout ou rien. Ils ne passent pas par
+# l'I2C : ce sont deux broches du micro:bit cablees directement sur le chassis,
+# donc ils fonctionnent meme quand le controleur moteur ne repond pas.
+PHARE_GAUCHE = pin8
+PHARE_DROIT = pin12
 
 
 def _borne(vitesse):
@@ -92,8 +98,15 @@ def pales(vitesse_gauche, vitesse_droite, contra=False):
     roue(DROITE, sens_droite, vitesse_droite)
 
 
+def phares(gauche, droit):
+    """Allume ou eteint les deux phares avant, chacun a True ou False."""
+    PHARE_GAUCHE.write_digital(1 if gauche else 0)
+    PHARE_DROIT.write_digital(1 if droit else 0)
+
+
 def arret():
     """Coupe les deux moteurs. Insiste : c'est la fonction de securite."""
     gauche = roue(GAUCHE, HORAIRE, 0, essais=8)
     droite = roue(DROITE, HORAIRE, 0, essais=8)
+    phares(False, False)
     return gauche and droite
