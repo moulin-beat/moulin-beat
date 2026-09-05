@@ -1,14 +1,20 @@
 # moulin-beat — flash du micro:bit v2 monte sur micro:Maqueen V4.2
 #
-# Le projet tient en plusieurs modules, donc on ne peut pas se contenter de
-# `uflash src/main.py` : uflash n'embarque qu'un seul script dans le firmware.
-# On flashe le runtime MicroPython nu, puis on depose les modules dans le
-# systeme de fichiers du micro:bit avec microfs. MicroPython execute
-# automatiquement le main.py qu'il y trouve au demarrage.
+# Deux voies mènent au robot, et elles ne valent pas la meme chose.
+#
+# `make flash` fusionne les modules en un script unique et le confie a uflash,
+# qui ecrit par le volume USB de masse. Cette voie ne touche jamais au port
+# serie, donc elle marche meme REPL bloque : c'est la voie par defaut.
+#
+# `make modules` depose les modules separement avec microfs. Plus propre pour
+# bidouiller au REPL ensuite, mais entierement suspendu au port serie, lequel se
+# bloque des que le programme tourne ou qu'un autre outil tient le port.
 #
 #   make deps     installe uflash et microfs (dans un venv)
-#   make flash    runtime + modules, la totale
-#   make sync     modules seulement, sans reflasher le runtime (bien plus rapide)
+#   make flash    fichier unique par le volume USB — la voie fiable
+#   make modules  modules separes par le REPL serie — plus propre, plus fragile
+#   make build    fusionne les modules sans rien flasher
+#   make sync     recopie les modules sans reflasher le runtime
 #   make ls       liste les fichiers presents sur le micro:bit
 #   make console  ouvre le REPL serie pour lire les erreurs
 #   make check    verifie que le micro:bit est visible et accessible
@@ -22,10 +28,10 @@ MODULES := src/maqueen.py src/beat.py src/choregraphie.py
 MAIN    := src/main.py
 PORT    := /dev/ttyACM0
 
-.PHONY: help deps flash sync ls console check test clean
+.PHONY: help deps build flash modules sync ls console check test clean
 
 help:
-	@sed -n 's/^# \{0,1\}//p' $(MAKEFILE_LIST) | sed -n '1,17p'
+	@sed -n 's/^# \{0,1\}//p' $(MAKEFILE_LIST) | sed -n '1,21p'
 
 $(VENV):
 	python3 -m venv $(VENV)
@@ -34,11 +40,26 @@ $(VENV):
 deps: $(VENV)
 	@echo "uflash et microfs installes dans $(VENV)"
 
-flash: deps
+build:
+	python3 outils/build_mono.py
+
+# Voie principale. uflash passe par le volume USB de masse et ne touche jamais
+# au port serie : c'est ce qui la rend fiable meme quand le REPL est bloque —
+# programme occupe, port pris, DAPLink capricieux. Comme uflash n'embarque
+# qu'un seul script, on fusionne d'abord les modules.
+flash: deps build
+	$(UFLASH) build/moulin_beat.py
+	@echo
+	@echo "Fait. Le robot demarre EN PAUSE : bouton B pour lancer les pales."
+	@echo "En pause, le bouton A lance le test des roues."
+
+# Voie alternative : les modules restent separes sur la carte, ce qui est plus
+# propre pour bidouiller au REPL, mais depend entierement du port serie.
+modules: deps
 	@echo ">>> Runtime MicroPython (efface le systeme de fichiers)"
 	$(UFLASH)
 	@echo ">>> Attente du remontage du volume MICROBIT"
-	@sleep 4
+	@sleep 5
 	$(MAKE) sync
 
 sync: deps

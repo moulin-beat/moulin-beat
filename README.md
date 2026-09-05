@@ -36,8 +36,17 @@ Le projet se flashe avec un `make`, depuis Linux :
 
 ```bash
 make check    # le micro:bit est-il vu et accessible ?
-make flash    # runtime MicroPython + modules du projet
+make flash    # fusionne les modules et flashe le robot
 ```
+
+`make flash` fusionne les quatre modules en un script unique, que `uflash`
+dépose par le **volume USB de masse**. Cette voie ne touche jamais au port
+série, donc elle fonctionne même quand le REPL est bloqué — ce qui arrive dès
+que le programme tourne, ou qu'un autre outil tient le port.
+
+`make modules` fait l'inverse : les modules restent séparés sur la carte, ce qui
+est plus agréable pour bidouiller au REPL, mais dépend entièrement du port
+série. À réserver au confort, pas au dépannage.
 
 Si `make check` signale des permissions en `crw-rw-r--` sur `/dev/bus/usb/...`,
 il manque une règle udev — voir [docs/linux.md](docs/linux.md).
