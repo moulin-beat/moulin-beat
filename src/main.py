@@ -56,6 +56,15 @@ class Moulin:
         display.clear()
 
     def boucle(self):
+        # Premier contact avec le controleur moteur. Sans ce reveil, la trame
+        # suivante partirait en ENODEV et emporterait le programme.
+        if not maqueen.reveille():
+            # Le Maqueen ne repond pas du tout : inutile d'aller plus loin, on
+            # le dit franchement plutot que de laisser croire a une panne de
+            # detection sonore.
+            while True:
+                display.scroll("Maqueen muet - verifier alim et micro:bit")
+
         self.pause()
 
         while True:

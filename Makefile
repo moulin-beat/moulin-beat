@@ -70,8 +70,14 @@ check:
 	done
 	@echo
 	@echo "=== Volume MICROBIT ==="
-	@ls -d /run/media/$$USER/MICROBIT /media/$$USER/MICROBIT 2>/dev/null \
-		|| echo "non monte (uflash en a besoin)"
+	@vol=$$(ls -d /run/media/$$USER/MICROBIT /media/$$USER/MICROBIT 2>/dev/null | head -1); \
+	if [ -n "$$vol" ]; then \
+		echo "monte sur $$vol"; \
+		test -f $$vol/DETAILS.TXT && grep -q WebUSB $$vol/DETAILS.TXT \
+			&& echo "firmware DAPLink avec WebUSB"; \
+	else \
+		echo "non monte (uflash en a besoin)"; \
+	fi
 	@echo
 	@echo "=== Port serie ==="
 	@ls -l $(PORT) 2>/dev/null || echo "$(PORT) absent"
