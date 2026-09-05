@@ -106,6 +106,62 @@ donnant l'impression d'un robot inerte ou d'un micro qui n'entend rien.
 l'échange initial au démarrage. Ne pas supprimer ces garde-fous en croyant
 simplifier le driver.
 
+## ASSERT.TXT : le firmware d'interface a planté
+
+Si un fichier `ASSERT.TXT` apparaît sur le volume `MICROBIT`, ce n'est pas le
+programme MicroPython qui a échoué : c'est **DAPLink**, la puce d'interface USB
+du micro:bit, distincte du processeur qui exécute le code.
+
+```
+Assert
+File: ../../../source/daplink/circ_buf.c
+Line: 169
+Source: Application
+```
+
+`circ_buf.c` est le buffer circulaire du canal série. Quand DAPLink s'y met en
+défaut, les symptômes sont déroutants parce qu'ils imitent une panne de
+programme :
+
+- le port série devient totalement muet, et le reste après rebranchement ;
+- `ufs` échoue avec `Could not enter raw REPL`, donc `make modules` et
+  `make console` sont hors service ;
+- les flashs par volume USB sont **acceptés en apparence** — le fichier est bien
+  copié — sans que le programme soit correctement écrit, d'où un micro:bit à
+  l'écran noir alors que tout paraît s'être bien passé.
+
+La cause tient au firmware lui-même. Vérifier dans `DETAILS.TXT` :
+
+```bash
+grep -E "Build ID|Interface Version|HIC ID" /run/media/$USER/MICROBIT/DETAILS.TXT
+```
+
+Un `Build ID` contenant `alpha` signale un firmware de préproduction, connu pour
+ce genre d'instabilité. La version stable est **0257** pour les cartes V2.20 et
+V2.21, **0255** pour les V2.00.
+
+Le `HIC ID` dit quelle carte on a : `6e052820` correspond au nRF52820, donc une
+V2.20/2.21, donc le 0257.
+
+## Mettre à jour le firmware DAPLink
+
+1. Débrancher l'USB **et** couper l'alimentation du châssis. Retirer le
+   micro:bit du Maqueen rend la manipulation plus sûre.
+2. Télécharger le firmware correspondant à la carte :
+   ```bash
+   curl -sSLO https://tech.microbit.org/docs/software/assets/DAPLink-factory-release/0257_nrf52820_microbit_if_crc_c782a5ba90_gcc.hex
+   ```
+3. **Maintenir le bouton RESET** au dos du micro:bit, et brancher l'USB sans le
+   relâcher. Un volume **MAINTENANCE** apparaît à la place de `MICROBIT`.
+4. Copier le `.hex` sur ce volume, puis attendre que la LED jaune du dos cesse
+   de clignoter.
+5. Débrancher, rebrancher, et vérifier :
+   ```bash
+   grep "Interface Version" /run/media/$USER/MICROBIT/DETAILS.TXT
+   ```
+
+Le fichier `ASSERT.TXT` disparaît une fois le défaut effacé.
+
 ## Lire les erreurs du robot
 
 Quand le programme plante, la trace part sur le port série :
