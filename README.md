@@ -54,8 +54,19 @@ table, et des roues qui se lancent seules le font tomber.
 | Commande | Effet |
 |---|---|
 | **bouton B** | démarrer / mettre en pause |
-| **bouton A** | motif suivant, son numéro s'affiche |
+| **bouton A** — en marche | motif suivant, son numéro s'affiche |
+| **bouton A** — en pause | séquence de test des deux roues |
 | **secousse** | arrêt d'urgence, retour en pause |
+
+Le **test des roues** est le diagnostic à lancer quand rien ne tourne. Après un
+compte à rebours de trois secondes — de quoi rattraper un robot posé sur une
+table — il fait tourner la roue gauche seule, la droite seule, puis les deux, et
+affiche `OK` si les ordres sont passés.
+
+Attention à ce que ce `OK` signifie : il atteste que les trames I2C ont été
+**acceptées**, rien de plus. Le robot n'a aucun retour sur la rotation réelle de
+ses roues. Un `OK` sans qu'aucune roue ne bouge désigne l'alimentation, pas le
+code — voir ci-dessous.
 
 Un cœur bat sur la matrice à chaque temps détecté. C'est l'outil de réglage :
 si le cœur bat en mesure, la chorégraphie suivra.
@@ -142,6 +153,20 @@ rien qui dépasse du berceau à hauteur de visage.
 Dans l'ordre : le programme démarre **en pause**, appuyer sur **B**. Puis
 `make ls` pour vérifier que les quatre modules sont bien sur la carte. Puis
 l'alimentation du châssis, si la matrice fait défiler `Maqueen muet`.
+
+**Le cas qui trompe le plus.** Les beats s'affichent bien, le test des roues
+répond `OK`, et pourtant rien ne tourne. Deux alimentations distinctes
+cohabitent sur le Maqueen :
+
+| Ce qui est alimenté | Par quoi |
+|---|---|
+| micro:bit et contrôleur I2C du châssis | le 3,3 V, donc **l'USB suffit** |
+| étage de puissance des moteurs | **uniquement les piles**, via l'interrupteur du châssis |
+
+Un châssis dont l'interrupteur est sur OFF accepte donc tous les ordres I2C sans
+broncher et ne bouge pas d'un millimètre. Aucun garde-fou logiciel ne peut
+distinguer ce cas d'un fonctionnement normal : `reveille()` teste la
+communication, pas la puissance.
 
 Le détail, ainsi qu'un piège matériel coûteux — le Maqueen ignore la première
 trame I2C après sa mise sous tension — est dans [docs/linux.md](docs/linux.md).

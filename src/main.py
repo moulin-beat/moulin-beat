@@ -5,7 +5,8 @@ de pales, ou des rubans. Le micro:bit v2 ecoute la piece et entraine les roues
 au rythme detecte.
 
 Commandes
-    bouton A   motif suivant
+    bouton A   en marche : motif suivant
+               en pause  : sequence de test des deux roues
     bouton B   demarrer / mettre en pause
     secousse   arret d'urgence, repasse en pause
 
@@ -46,6 +47,48 @@ class Moulin:
         sleep(400)
         display.clear()
 
+    def test_roues(self):
+        """Diagnostic moteur, sur le bouton A quand le robot est en pause.
+
+        Fait tourner chaque roue separement puis les deux ensemble. Permet de
+        distinguer d'un coup d'oeil les pannes qui se ressemblent toutes depuis
+        la matrice : moteur mort, cablage, ou chassis hors tension.
+
+        Point important : le controleur I2C du Maqueen est alimente par le 3,3 V
+        du micro:bit, donc par l'USB seul, alors que l'etage de puissance des
+        moteurs ne l'est que par les piles. Un chassis eteint accepte donc les
+        ordres sans broncher et ne bouge pas. Si cette sequence affiche OK sans
+        qu'aucune roue ne tourne, le diagnostic est l'alimentation, pas le code.
+        """
+        display.scroll("TEST", delay=60)
+
+        # Compte a rebours : de quoi rattraper un robot pose sur une table.
+        for reste in (3, 2, 1):
+            display.show(str(reste))
+            sleep(600)
+
+        etapes = (
+            (Image.ARROW_W, maqueen.VITESSE_TEST, 0),
+            (Image.ARROW_E, 0, maqueen.VITESSE_TEST),
+            (Image.SQUARE, maqueen.VITESSE_TEST, maqueen.VITESSE_TEST),
+        )
+
+        transmis = True
+        for image, gauche, droite in etapes:
+            display.show(image)
+            if gauche:
+                transmis &= maqueen.roue(maqueen.GAUCHE, maqueen.HORAIRE, gauche)
+            if droite:
+                transmis &= maqueen.roue(maqueen.DROITE, maqueen.ANTIHORAIRE, droite)
+            sleep(1200)
+            maqueen.arret()
+            sleep(400)
+
+        # On ne peut affirmer que la transmission des ordres, pas la rotation :
+        # rien ici ne renseigne le robot sur ce que ses roues ont fait.
+        display.scroll("OK" if transmis else "I2C KO", delay=60)
+        self.pause()
+
     def pause(self):
         self.actif = False
         maqueen.arret()
@@ -69,7 +112,12 @@ class Moulin:
 
         while True:
             if button_a.was_pressed():
-                self.motif_suivant()
+                if self.actif:
+                    self.motif_suivant()
+                else:
+                    # A l'arret, le bouton A sert au diagnostic : c'est le
+                    # moment ou l'on cherche pourquoi rien ne tourne.
+                    self.test_roues()
 
             if button_b.was_pressed():
                 if self.actif:

@@ -28,6 +28,11 @@ ANTIHORAIRE = 0x01
 VITESSE_MIN = 40
 VITESSE_MAX = 255
 
+# Vitesse de la sequence de diagnostic : assez pour qu'une roue chargee de
+# pales tourne franchement, assez peu pour qu'un robot pose au sol ne parte pas
+# en trombe le temps de le rattraper.
+VITESSE_TEST = 120
+
 
 def _borne(vitesse):
     vitesse = int(vitesse)
