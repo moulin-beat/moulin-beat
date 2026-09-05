@@ -137,6 +137,15 @@ principes tenus par le code, à ne pas défaire :
 Côté matériel : pales légères et souples de préférence, bien équilibrées, et
 rien qui dépasse du berceau à hauteur de visage.
 
+## Le robot ne fait rien ?
+
+Dans l'ordre : le programme démarre **en pause**, appuyer sur **B**. Puis
+`make ls` pour vérifier que les quatre modules sont bien sur la carte. Puis
+l'alimentation du châssis, si la matrice fait défiler `Maqueen muet`.
+
+Le détail, ainsi qu'un piège matériel coûteux — le Maqueen ignore la première
+trame I2C après sa mise sous tension — est dans [docs/linux.md](docs/linux.md).
+
 ## Licence
 
 MIT — voir [LICENSE](LICENSE).

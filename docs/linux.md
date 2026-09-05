@@ -54,6 +54,58 @@ Fedora et Ubuntu, qui vient sonder les ports `ttyACM` et perturbe le REPL.
   dans `USB Interfaces`. Sinon, mettre à jour depuis
   [microbit.org/get-started/user-guide/firmware](https://microbit.org/get-started/user-guide/firmware/).
 
+## Le robot ne fait rien après le flash
+
+Trois causes, dans l'ordre de fréquence.
+
+**Le programme est en pause.** C'est le comportement normal au démarrage. La
+matrice affiche un petit carré : appuyer sur **B** pour lancer les pales.
+
+**Le micro:bit est vierge.** `make flash` n'a pas été lancé, ou a échoué au
+remontage du volume. Vérifier :
+
+```bash
+make ls        # doit lister beat.py choregraphie.py main.py maqueen.py
+```
+
+Une liste vide signifie que seul le runtime MicroPython est présent :
+relancer `make sync`.
+
+**Le Maqueen ne répond pas sur l'I2C.** La matrice fait alors défiler
+`Maqueen muet`. Vérifier l'interrupteur du châssis, les piles, et que le
+micro:bit est enfiché à fond dans le connecteur.
+
+Pour lever le doute, scanner le bus depuis le REPL (`make console`) :
+
+```python
+from microbit import i2c
+[hex(a) for a in i2c.scan()]
+```
+
+`['0x10']` attendu. Si la liste est vide, c'est bien l'alimentation ou le
+connecteur. Si une autre adresse apparaît, la carte n'est pas un Maqueen
+standard — un Maqueen **Plus** utilise un autre protocole moteur.
+
+## Le piège du premier échange I2C
+
+Le contrôleur moteur du Maqueen **n'acquitte pas la toute première écriture
+I2C** qui suit sa mise sous tension. Elle échoue en `OSError: [Errno 19]
+ENODEV`, et elle seule : toutes les suivantes passent.
+
+```
+>>> i2c.write(0x10, bytearray([0,0,0]))
+OSError: [Errno 19] ENODEV        <- premier échange
+>>> i2c.write(0x10, bytearray([0,0,80]))
+>>>                                <- passe sans broncher
+```
+
+Un code naïf meurt donc sur sa première trame, avant d'avoir rien fait, en
+donnant l'impression d'un robot inerte ou d'un micro qui n'entend rien.
+
+`maqueen.roue()` réessaie pour cette raison, et `maqueen.reveille()` absorbe
+l'échange initial au démarrage. Ne pas supprimer ces garde-fous en croyant
+simplifier le driver.
+
 ## Lire les erreurs du robot
 
 Quand le programme plante, la trace part sur le port série :
