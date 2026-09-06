@@ -11,12 +11,15 @@ Commandes
     secousse   arret d'urgence, repasse en pause
 
 Le programme demarre TOUJOURS en pause : au sortir du flash le robot est encore
-souvent sur la table, et des roues qui se lancent seules le font tomber. Avant
-cela il mesure une seconde de bruit ambiant, carre plein affiche, pour caler la
-moyenne glissante sur laquelle repose toute la detection.
+souvent sur la table, et des roues qui se lancent seules le font tomber.
 
 A chaque temps detecte, la matrice montre le rang du temps dans la mesure et les
 phares avant clignotent : les deux sur le premier temps, un seul sur les autres.
+
+Le detecteur se recale en continu sur le volume ambiant, sans calibration
+ponctuelle : l'installation traverse les changements de morceau et les
+variations de salle toute seule. Quand la musique s'arrete, les pales s'arretent
+aussi, et repartent d'elles memes au retour du son.
 """
 
 from microbit import (
@@ -51,6 +54,9 @@ class Moulin:
         # temps : sur une mesure a quatre temps, alterner selon le rang ferait
         # toujours tomber deux temps sur trois du meme cote.
         self.cote_phare = False
+        # Evite de repeter l'ordre d'arret et l'affichage a chaque tour pendant
+        # un silence, qui peut durer des heures.
+        self.endormi = False
 
     def motif_suivant(self):
         self.index = (self.index + 1) % len(choregraphie.REPERTOIRE)
@@ -104,6 +110,7 @@ class Moulin:
 
     def pause(self):
         self.actif = False
+        self.endormi = False
         maqueen.arret()   # coupe aussi les phares
         display.show(Image.SQUARE_SMALL)
 
@@ -120,13 +127,6 @@ class Moulin:
             # detection sonore.
             while True:
                 display.scroll("Maqueen muet - verifier alim et micro:bit")
-
-        # Le detecteur mesure le bruit de fond avant de commencer, sinon sa
-        # moyenne glissante part de zero et les premieres secondes se remplissent
-        # de faux temps.
-        display.show(Image.SQUARE)
-        self.detecteur.calibre()
-        display.clear()
 
         self.pause()
 
@@ -166,11 +166,22 @@ class Moulin:
                     self.cote_phare = not self.cote_phare
                     maqueen.phares(self.cote_phare, not self.cote_phare)
 
+            # Plus de musique : on coupe tout. La detection, elle, continue de
+            # tourner, donc les pales repartent seules des que le son revient —
+            # sans intervention, ce qui compte pour une installation laissee
+            # seule plusieurs heures.
             if self.detecteur.silence(SILENCE_MS):
-                maqueen.arret()
-                display.show(Image.ASLEEP)
+                if not self.endormi:
+                    maqueen.arret()   # coupe aussi les phares
+                    display.show(Image.ASLEEP)
+                    self.endormi = True
                 sleep(PERIODE_MS)
                 continue
+
+            if self.endormi:
+                # La musique reprend.
+                self.endormi = False
+                display.clear()
 
             gauche, droite, contra = self.motif.tic(self.detecteur.energie)
             maqueen.pales(gauche, droite, contra)

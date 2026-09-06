@@ -77,12 +77,7 @@ Attention à ce que ce `OK` signifie : il atteste que les trames I2C ont été
 ses roues. Un `OK` sans qu'aucune roue ne bouge désigne l'alimentation, pas le
 code — voir ci-dessous.
 
-**Au démarrage, le robot écoute une seconde la pièce à vide**, un carré plein
-affiché, pour calibrer la moyenne glissante sur laquelle repose toute la
-détection. Sans cette mesure, elle partirait de zéro et les premières secondes
-se rempliraient de faux temps. Ne pas faire de bruit pendant ce moment.
-
-Ensuite, **à chaque temps détecté** :
+**À chaque temps détecté** :
 
 - la matrice affiche le **rang du temps dans la mesure**, de 1 à 4 ;
 - les **phares avant** clignotent — les deux sur le premier temps, un seul en
@@ -109,6 +104,34 @@ rotation de fond que les temps viennent moduler. Les autres ne bougent **que**
 sur un temps et retombent à zéro entre deux : dans le silence, ils laissent les
 pales strictement immobiles.
 
+## Le seuil se recale tout seul
+
+Il n'y a **aucune calibration** à faire, ni au démarrage ni ensuite. Le
+détecteur entretient en permanence deux moyennes glissantes qui ne regardent pas
+la même échelle de temps :
+
+| Moyenne | Portée | Rôle |
+|---|---|---|
+| `moyenne` | ~1 seconde | suit l'intensité du morceau en cours, sans suivre le beat lui-même. Le seuil s'y rapporte : un temps, c'est un niveau qui la dépasse d'un facteur |
+| `fond` | ~1 minute | le niveau général de la salle. Sert de plancher : en dessous, rien n'est détecté, ce qui empêche le silence et le brouhaha du public de passer pour un rythme |
+
+Une installation qui tourne des heures traverse donc seule les changements de
+morceau, la salle qui se remplit et les variations de volume. En simulation sur
+18 heures, le dispositif suit une musique à niveau 220 puis repart correctement
+sur une musique à 70 — trois fois plus faible — sans intervention.
+
+Les deux moyennes se calent d'autant plus vite qu'elles ont vu peu
+d'échantillons, ce qui évite d'attendre au démarrage sans laisser passer de
+rafale de faux temps.
+
+## Quand la musique s'arrête
+
+Après quatre secondes sans aucun temps détecté, les pales et les phares
+s'arrêtent et le micro:bit affiche un dormeur. **La détection, elle, continue de
+tourner** : les pales repartent d'elles-mêmes dès que le son revient, sans
+intervention. C'est ce qui permet de laisser l'installation seule entre deux
+passages musicaux.
+
 ## Réglages
 
 Toute la sensibilité tient dans `src/beat.py` :
@@ -122,10 +145,14 @@ beat.Detecteur(sensibilite=1.30, temps_mort=150, plancher=12)
   bruit continu.
 - **temps_mort** — durée en ms d'aveuglement après un temps. Une caisse claire
   produit plusieurs pics rapprochés qu'il ne faut compter qu'une fois.
-- **plancher** — niveau sonore minimal. **À monter en premier** si le robot
-  s'agite dans une pièce silencieuse. La calibration du démarrage le relève
-  automatiquement dans une salle bruyante, mais ne le baisse jamais en dessous
-  de la valeur demandée.
+- **plancher** — plancher **absolu**. Le plancher réel est le plus haut des
+  deux : celui-ci, et celui que le fond impose. **À monter en premier** si le
+  robot s'agite dans une pièce silencieuse.
+
+Deux constantes de tête de fichier règlent les échelles de temps :
+`INERTIE_FOND` (3000 échantillons, environ une minute) commande la vitesse à
+laquelle le dispositif s'adapte à une salle qui change, et `MARGE_FOND` (1,6) la
+hauteur du plancher au-dessus du niveau ambiant.
 
 Le seuil est une moyenne glissante, pas une valeur fixe : le dispositif s'adapte
 tout seul à une salle bruyante comme à un morceau doux.
