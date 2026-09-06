@@ -131,6 +131,77 @@ def test_le_rang_dans_la_mesure_tourne():
     assert d.accent(), "le premier temps de la mesure doit porter l'accent"
 
 
+def test_la_gigue_separe_la_musique_du_bruit():
+    # Les deux diagnostics du tableau de bord n'ont d'intérêt que s'ils
+    # discriminent vraiment. Rien ici ne sait si un temps détecté correspond à
+    # un vrai temps de la musique — mais un train de temps irréguliers ne peut
+    # pas être de la musique.
+    import random
+
+    def joue(bruit):
+        microbit.remet_a_zero()
+        random.seed(5)
+        d = beat.Detecteur()
+        for tic in range(750):
+            if bruit:
+                niveau = 90 + random.randint(-6, 60)
+            else:
+                phase = tic % 25
+                niveau = 90 + random.randint(-6, 6)
+                if phase == 0:
+                    niveau = 150
+                elif phase == 1:
+                    niveau = 130
+            microbit.joue_niveaux([niveau])
+            d.ecoute()
+            microbit.avance(PAS_MS)
+        return d
+
+    # Seuils tirés de la mesure sur quatre graines : la musique donne 0,000
+    # à chaque fois, le bruit de 0,14 à 0,25.
+    musique = joue(False)
+    bruit = joue(True)
+    assert musique.gigue < 0.05, musique.gigue
+    assert bruit.gigue > 0.12, bruit.gigue
+
+
+def test_la_marge_dit_ou_le_seuil_est_place():
+    # Le diagnostic doit pointer la DIRECTION, sinon il n'est pas actionnable.
+    import random
+
+    # Seuil absurde, au-dessus de tout : rien ne passera jamais.
+    d = neuf(plancher=250)
+    fait_ecouter(d, 90, 300)
+    assert d.marge() == 0.0, d.marge()
+
+    # Sur de la vraie musique, le seuil doit se poser entre la nappe et les
+    # crêtes — ni en butée haute, ni collé à la nappe. Ce test tient MARGE_FOND
+    # en laisse : c'est lui qui a attrapé le réglage à 1,6, où le seuil montait
+    # sous les crêtes et où l'indicateur restait bloqué en bleu.
+    microbit.remet_a_zero()
+    random.seed(5)
+    d = beat.Detecteur()
+    for tic in range(1500):
+        phase = tic % 25
+        niveau = 90 + random.randint(-6, 6)
+        if phase == 0:
+            niveau = 150
+        elif phase == 1:
+            niveau = 130
+        microbit.joue_niveaux([niveau])
+        d.ecoute()
+        microbit.avance(PAS_MS)
+    assert 0.40 < d.marge() < 0.90, d.marge()
+
+
+def test_pas_de_tempo_sans_temps_detectes():
+    # Sans ce garde-fou, « parfaitement régulier » et « rien détecté » vaudraient
+    # tous deux zéro et s'afficheraient pareil.
+    d = neuf()
+    fait_ecouter(d, 2, 300)
+    assert not d.tempo_etabli()
+
+
 if __name__ == "__main__":
     for nom, fonction in sorted(globals().items()):
         if nom.startswith("test_"):
