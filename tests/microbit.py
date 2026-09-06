@@ -29,6 +29,9 @@ def avance(ms):
 def remet_a_zero():
     _horloge[0] = 0
     _niveaux[:] = [0]
+    i2c.ecrites[:] = []
+    pin8.etat = 0
+    pin12.etat = 0
 
 
 def joue_niveaux(valeurs):
@@ -58,6 +61,7 @@ class _Broche:
 
 pin8 = _Broche()
 pin12 = _Broche()
+pin15 = _Broche()
 
 
 class _I2C:
