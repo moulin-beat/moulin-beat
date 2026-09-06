@@ -87,6 +87,15 @@ def allege(texte):
             corps[0] = ast.Pass() if len(corps) == 1 else None
             noeud.body = [n for n in corps if n is not None]
 
+    # Une fois les modules concatenes, un seul docstring reste a sa place : les
+    # trois autres se retrouvent au milieu du fichier, litteraux inertes que la
+    # passe ci dessus ne voit pas puisqu'ils ne sont plus en tete de corps. Ils
+    # pesaient 4 ko sur les 20 que uflash accepte.
+    arbre.body = [n for n in arbre.body
+                  if not (isinstance(n, ast.Expr)
+                          and isinstance(n.value, ast.Constant)
+                          and isinstance(n.value.value, str))]
+
     return ast.unparse(arbre)
 
 

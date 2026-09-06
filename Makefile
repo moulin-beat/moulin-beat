@@ -48,10 +48,12 @@ build:
 # programme occupe, port pris, DAPLink capricieux. Comme uflash n'embarque
 # qu'un seul script, on fusionne d'abord les modules.
 flash: deps build
-	$(UFLASH) build/moulin_beat.py
+	@echo ">>> Flash et verification"
+	@$(PY) outils/flash.py build/moulin_beat.py
 	@echo
-	@echo "Fait. Le robot demarre EN PAUSE : bouton B pour lancer les pales."
-	@echo "En pause, le bouton A lance le test des roues."
+	@echo "Fait. Le robot se lance SEUL apres deux secondes de compte a rebours."
+	@echo "A = motif suivant (1 a 5), B = amortissement (0 a 5)."
+	@echo "Logo tactile = reglage par defaut + tests. Secousse = arret."
 
 # Voie alternative : les modules restent separes sur la carte, ce qui est plus
 # propre pour bidouiller au REPL, mais depend entierement du port serie.
@@ -70,7 +72,7 @@ sync: deps
 	@echo ">>> Copie du programme principal"
 	$(UFS) put $(MAIN)
 	@echo
-	@echo "Fait. Le robot demarre EN PAUSE : bouton B pour lancer les pales."
+	@echo "Fait. Le robot se lance SEUL apres deux secondes de compte a rebours."
 
 ls: deps
 	$(UFS) ls
@@ -106,6 +108,7 @@ check:
 test:
 	python3 tests/test_choregraphie.py
 	python3 tests/test_beat.py
+	python3 tests/test_maqueen.py
 
 clean:
 	rm -rf $(VENV)
